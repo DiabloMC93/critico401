@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Cuidados Paliativos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        .option-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: 2px solid #1e293b;
+        }
+
+        .option-card:hover {
+            background-color: #1e293b;
+            border-color: #3b82f6;
+        }
+
+        .option-card.correct {
+            background-color: #065f46 !important;
+            border-color: #10b981 !important;
+        }
+
+        .option-card.incorrect {
+            background-color: #7f1d1d !important;
+            border-color: #ef4444 !important;
+        }
+
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div id="app" class="w-full max-w-2xl bg-slate-900 rounded-2xl shadow-2xl p-6 md:p-8 border border-slate-800">
+        <!-- Header Stats -->
+        <div class="flex justify-between items-center mb-6">
+            <div class="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                Pregunta <span id="current-index" class="text-white">1</span> de <span id="total-questions" class="text-white">31</span>
+            </div>
+            <div class="flex gap-4">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 bg-emerald-500 rounded-full"></span>
+                    <span id="score-correct" class="font-bold">0</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 bg-red-500 rounded-full"></span>
+                    <span id="score-incorrect" class="font-bold">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="w-full bg-slate-800 h-2 rounded-full mb-8 overflow-hidden">
+            <div id="progress" class="progress-bar h-full bg-blue-600" style="width: 0%"></div>
+        </div>
+
+        <!-- Question Container -->
+        <div id="question-container" class="space-y-6">
+            <h2 id="question-text" class="text-xl md:text-2xl font-bold leading-tight">
+                Cargando pregunta...
+            </h2>
+            
+            <div id="options-grid" class="grid gap-3">
+                <!-- Options injected by JS -->
+            </div>
+        </div>
+
+        <!-- Feedback & Next -->
+        <div id="feedback-area" class="mt-8 hidden flex flex-col items-center">
+            <p id="feedback-message" class="text-center mb-4 font-semibold italic"></p>
+            <button id="next-btn" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors">
+                Siguiente Pregunta
+            </button>
+        </div>
+
+        <!-- Result Screen (Hidden by default) -->
+        <div id="result-screen" class="hidden text-center py-10 space-y-6">
+            <h2 class="text-4xl font-bold">¡Test Completado!</h2>
+            <div class="text-6xl font-black py-4" id="final-percentage">0%</div>
+            <div class="text-lg text-slate-400">
+                Has acertado <span id="final-correct" class="text-emerald-400 font-bold">0</span> de <span id="final-total">0</span> preguntas.
+            </div>
+            <button onclick="location.reload()" class="px-8 py-3 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors">
+                Repetir Test
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const quizData = [
+            { q: "1. ¿Qué autora describió las etapas del duelo?", a: ["Marjory Gordon", "Salazar", "Virginia Henderson", "Elisabeth Kübler-Ross"], c: 3 },
+            { q: "2. ¿Qué fármacos analgésicos forman parte del primer escalón de la escalera analgésica de la OMS?", a: ["No opioides", "Baclofeno", "Opioides potentes", "Agonistas parciales"], c: 0 },
+            { q: "3. ¿Cuál es el síntoma más temido por los pacientes terminales?", a: ["Dolor", "Vómitos", "Fiebre", "Diarrea"], c: 0 },
+            { q: "4. ¿Qué etapa del duelo corresponde con el comienzo de la aceptación de la pérdida?", a: ["Aceptación", "Negación", "Negociación", "Depresión"], c: 2 },
+            { q: "5. ¿Cuál es la secuencia correcta de las etapas del duelo?", a: ["Ira, negación, depresión, aceptación y negociación", "Negación, ira, depresión, negociación y aceptación", "Negación, ira, negociación, depresión y aceptación", "Depresión, ira, negociación, negación y aceptación"], c: 2 },
+            { q: "6. ¿Cuáles son los fármacos de base en el control del dolor del paciente terminal?", a: ["Aspirina, codeína y morfina", "Opio, ibuprofeno y tramadol", "Aspirina, baclofeno y opio", "Paracetamol, salicilato y metadona"], c: 0 },
+            { q: "7. La dieta en el paciente terminal debe ser:", a: ["Hipocalórica", "Hiperproteica", "Rica en fibra", "Que contenga pequeñas cantidades de agua sin forzar"], c: 3 },
+            { q: "8. Según la sociedad española de cuidados paliativos, dentro de las bases de la terapéutica no se encuentra:", a: ["Importancia del ambiente", "Equipo interdisciplinar", "Acción terapéutica activa", "Atención integral"], c: 2 },
+            { q: "9. Cuál es una prioridad en el cuidado del paciente comatoso:", a: ["Cuidar la piel", "Conservar la temperatura", "Conseguir y asegurar vía aérea satisfactoria", "Mantener el peso"], c: 2 },
+            { q: "10. La caquexia es:", a: ["Anorexia", "Pérdida de peso y masa muscular", "Vómitos", "Confusión"], c: 1 },
+            { q: "11. El rigor mortis es un signo:", a: ["Precoz de muerte", "Tardío de muerte", "Prematuro de muerte", "Inminente de muerte"], c: 1 },
+            { q: "12. El cuidado inmediato tras la muerte del paciente es:", a: ["Colocar sobre la mortaja", "Retirar las pertenencias del paciente", "Realizar la higiene", "Tapar los orificios"], c: 1 },
+            { q: "13. El estado de inconsciencia parcial se denomina:", a: ["Estupor", "Coma", "Delirio", "Confusión"], c: 0 },
+            { q: "14. La enfermedad terminal no se caracteriza por:", a: ["Escasa respuesta al tratamiento específico", "Pronóstico de vida superior a 6 meses", "Gran impacto emocional", "Enfermedad incurable, avanzada y progresiva"], c: 1 },
+            { q: "15. Respecto a los cuidados del paciente terminal, no es correcto:", a: ["Realizar cambios posturales cada dos horas sin interrupción", "Conseguir que el paciente coma poco y a menudo", "Controlar los síntomas", "Evitar el estreñimiento"], c: 0 },
+            { q: "16. El signo o signos de muerte cierta es:", a: ["Midriasis", "Frialdad", "EKG y EEG planos", "Todas son correctas"], c: 3 },
+            { q: "17. No se pueden comenzar los cuidados post mortem hasta que:", a: ["El médico certifica la muerte del paciente", "La familia es conocedora de la muerte del paciente", "Se realiza la terapia intravenosa", "El paciente no tiene pulso"], c: 0 },
+            { q: "18. Dentro de las intervenciones durante la pérdida de un familiar no se encuentra:", a: ["Promover la no expresión de sentimientos", "Promover la participación activa de la familia en el cuidado del paciente", "Mostrar preocupación e interés", "Compartir la experiencia"], c: 0 },
+            { q: "19. Cuál es la vía de administración preferente en cuidados paliativos:", a: ["Oral", "Intradérmica", "Rectal", "Intramuscular"], c: 0 },
+            { q: "20. Cuál no es un signo frecuente de agonía en el enfermo terminal:", a: ["Ansiedad", "Confusión", "Eupnea", "Retención urinaria"], c: 2 },
+            { q: "21. Dentro de los cuidados de enfermería al paciente en la etapa de final de vida no encontramos:", a: ["Compartir la experiencia", "Permitir la expresión de inquietudes", "Dialogar, mostrar interés y apoyo", "Mostrar una actitud de apatía"], c: 3 },
+            { q: "22. ¿Qué son los estertores?", a: ["Ruidos respiratorios por acumulación de secreciones en las vías altas", "Vómitos", "Estado confusional", "Alteración del pulso"], c: 0 },
+            { q: "23. Dentro de los cuidados del paciente en fase terminal está contraindicado:", a: ["Sonda vesical si retención urinaria", "SNG si existe negativa a comer", "Administración de enemas si estreñimiento", "Cambios posturales cada 2 horas"], c: 1 },
+            { q: "24. Los cuidados paliativos del paciente terminal:", a: ["Se centran en mantener la vida, sin prolongar ni acortar", "Todas son correctas", "Buscan cuidar al paciente", "Apoyar a la familia durante el proceso de duelo"], c: 1 },
+            { q: "25. Los cuidados realizados en el manejo del paciente terminal se denominan:", a: ["Cuidados de confort", "Cuidados para prolongar la vida", "Cuidados medicinales", "Cuidados intensivos"], c: 0 },
+            { q: "26. Las necesidades físicas y morales del paciente terminal corresponden a:", a: ["Higiene y alimentación", "Descanso y relajación", "Actividades recreativas", "Todas son correctas"], c: 3 },
+            { q: "27. Señala la correcta respecto a los cuidados paliativos:", a: ["Todas son falsas", "El paciente y la familia deben ser tratados como unidad", "El cuidado implica aumento del sufrimiento de la familia", "Solo se enfocan en el dolor físico"], c: 1 },
+            { q: "28. Cuál es una causa de estreñimiento en el paciente terminal:", a: ["Aumento de la movilización", "Uso de opioides", "Aumento de la ingesta", "Alteración del sueño"], c: 1 },
+            { q: "29. La colocación del paciente en los cuidados post mortem se caracteriza por:", a: ["Decúbito prono", "Decúbito prono con palmas abajo", "Decúbito supino con brazos a lo largo o sobre el abdomen", "Decúbito supino con palmas arriba"], c: 2 },
+            { q: "30. Dentro de los cuidados post mortem encontramos:", a: ["Elevar la cama y retirar la almohada", "Retirar sondas y drenajes", "Dejar la cabeza baja para favorecer coloración", "Realizar autopsia obligatoria"], c: 1 },
+            { q: "31. La posición de trendelenburg inversa:", a: ["Favorece el retorno venoso", "Evita el reflujo esofágico", "Mejora la diuresis", "No existe tal posición"], c: 1 }
+        ];
+
+        let currentIndex = 0;
+        let scoreCorrect = 0;
+        let scoreIncorrect = 0;
+        let answered = false;
+
+        const elements = {
+            currentIndex: document.getElementById('current-index'),
+            totalQuestions: document.getElementById('total-questions'),
+            scoreCorrect: document.getElementById('score-correct'),
+            scoreIncorrect: document.getElementById('score-incorrect'),
+            progress: document.getElementById('progress'),
+            questionText: document.getElementById('question-text'),
+            optionsGrid: document.getElementById('options-grid'),
+            feedbackArea: document.getElementById('feedback-area'),
+            feedbackMessage: document.getElementById('feedback-message'),
+            nextBtn: document.getElementById('next-btn'),
+            questionContainer: document.getElementById('question-container'),
+            resultScreen: document.getElementById('result-screen'),
+            finalPercentage: document.getElementById('final-percentage'),
+            finalCorrect: document.getElementById('final-correct'),
+            finalTotal: document.getElementById('final-total')
+        };
+
+        function init() {
+            elements.totalQuestions.innerText = quizData.length;
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const current = quizData[currentIndex];
+            answered = false;
+            
+            elements.currentIndex.innerText = currentIndex + 1;
+            elements.progress.style.width = `${(currentIndex / quizData.length) * 100}%`;
+            elements.questionText.innerText = current.q;
+            elements.feedbackArea.classList.add('hidden');
+            
+            elements.optionsGrid.innerHTML = '';
+            current.a.forEach((option, idx) => {
+                const btn = document.createElement('div');
+                btn.className = 'option-card p-4 rounded-xl text-lg font-medium';
+                btn.innerText = option;
+                btn.onclick = () => selectOption(idx, btn);
+                elements.optionsGrid.appendChild(btn);
+            });
+        }
+
+        function selectOption(idx, element) {
+            if (answered) return;
+            answered = true;
+
+            const current = quizData[currentIndex];
+            const allOptions = elements.optionsGrid.children;
+
+            if (idx === current.c) {
+                element.classList.add('correct');
+                scoreCorrect++;
+                elements.scoreCorrect.innerText = scoreCorrect;
+                elements.feedbackMessage.innerText = "¡Correcto!";
+                elements.feedbackMessage.className = "text-emerald-400 font-bold mb-4";
+            } else {
+                element.classList.add('incorrect');
+                allOptions[current.c].classList.add('correct');
+                scoreIncorrect++;
+                elements.scoreIncorrect.innerText = scoreIncorrect;
+                elements.feedbackMessage.innerText = "Incorrecto. La respuesta era: " + current.a[current.c];
+                elements.feedbackMessage.className = "text-red-400 font-bold mb-4";
+            }
+
+            elements.feedbackArea.classList.remove('hidden');
+        }
+
+        elements.nextBtn.onclick = () => {
+            currentIndex++;
+            if (currentIndex < quizData.length) {
+                loadQuestion();
+            } else {
+                showResults();
+            }
+        };
+
+        function showResults() {
+            elements.questionContainer.classList.add('hidden');
+            elements.feedbackArea.classList.add('hidden');
+            elements.resultScreen.classList.remove('hidden');
+            
+            const percent = Math.round((scoreCorrect / quizData.length) * 100);
+            elements.finalPercentage.innerText = percent + "%";
+            elements.finalCorrect.innerText = scoreCorrect;
+            elements.finalTotal.innerText = quizData.length;
+
+            // Color del porcentaje
+            if (percent >= 70) elements.finalPercentage.classList.add('text-emerald-400');
+            else if (percent >= 50) elements.finalPercentage.classList.add('text-yellow-400');
+            else elements.finalPercentage.classList.add('text-red-400');
+        }
+
+        init();
+    </script>
+</body>
+</html>
